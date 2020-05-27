@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -eu
+
+echo 'global git hooks'
+hook=$(basename "$0")
+base_dir=$(dirname $(dirname "$0"))
+custom_scripts_dir="$base_dir/custom-hooks/$hook/"
+
+echo "execute custom-hooks"
+ls "$custom_scripts_dir" | while read line
+do
+	"$custom_scripts_dir/$line" "$@"
+done
+
+echo "execute repository hooks"
+git_dir=$(git rev-parse --absolute-git-dir)
+local_script="$git_dir/hooks/$hook"
+if [ -f "$local_script" ]; then
+	"$local_script" "$@"
+fi

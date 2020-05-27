@@ -1,0 +1,28 @@
+#!/bin/sh
+
+basedir=$(realpath $(dirname $(dirname $0)))
+
+lib_dir="$basedir/lib/"
+hooks_dir="$basedir/hooks/"
+custom_hooks_dir="$basedir/custom-hooks/"
+
+hook_base_file="$lib_dir/hook-base"
+hook_types_file="$basedir/setup/hook-types"
+
+echo "mkdir \"$hooks_dir\""
+mkdir -p "$hooks_dir"
+cat "$hook_types_file" | grep -v "^#" |while read line
+do
+    echo "mkdir \"$custom_hooks_dir/$line\""
+    mkdir -p "$custom_hooks_dir/$line"
+
+    echo "create: \"$hooks_dir/$line\""
+    cat > "$hooks_dir/$line" <<EOF
+#!/bin/sh
+hook_base_file="\$(dirname \$(dirname \$0))/lib/hook-base"
+. "\$hook_base_file"
+EOF
+done
+
+echo "git config --global core.hooksPath \"$hooks_dir\""
+git config --global core.hooksPath "$hooks_dir"
