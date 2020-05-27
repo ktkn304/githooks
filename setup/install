@@ -1,6 +1,8 @@
 #!/bin/sh
 
-basedir=$(realpath $(dirname $(dirname $0)))
+set -eu
+
+basedir=$(cd $(dirname $(dirname $0)) && pwd)
 
 lib_dir="$basedir/lib/"
 hooks_dir="$basedir/hooks/"
