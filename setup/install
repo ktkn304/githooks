@@ -4,9 +4,9 @@ set -eu
 
 basedir=$(cd $(dirname $(dirname $0)) && pwd)
 
-lib_dir="$basedir/lib/"
-hooks_dir="$basedir/hooks/"
-custom_hooks_dir="$basedir/custom-hooks/"
+lib_dir="$basedir/lib"
+hooks_dir="$basedir/hooks"
+custom_hooks_dir="$basedir/custom-hooks"
 
 hook_base_file="$lib_dir/hook-base"
 hook_types_file="$basedir/setup/hook-types"

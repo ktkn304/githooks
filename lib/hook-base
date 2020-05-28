@@ -2,14 +2,47 @@
 
 set -eu
 
+function load_config_all() {
+	local config_key="ghooks.$1"
+	local env_name=$(echo "$config_key" | tr '[:lower:].' '[:upper:]_')
+	{
+		git config --get-all "$config_key" || true
+		eval echo \"\${${env_name}:-}\" | tr ':' '\n'
+	} | sort -u
+}
+
+function expand_path() {
+	local basedir="$1"
+	local depth="$2"
+
+	grep -ve '^$' | while read line || test -n "$line"
+	do
+		find "$basedir" -mindepth "$depth" -maxdepth "$depth" -type f -path "$line"
+	done
+}
+
+function get_custom_scripts() {
+	local basedir="$1"
+	local hook="$2"
+	local curdir=$(pwd)
+
+	cd "$basedir"
+	find "$hook" -maxdepth 1 -type f | grep -vxFf <(
+		load_config_all "core.disabled" | expand_path "$hook" 1
+		echo '//'
+	)
+	cd "$curdir"
+}
+
 echo 'global git hooks'
 hook=$(basename "$0")
-base_dir=$(dirname $(dirname "$0"))
-custom_scripts_dir="$base_dir/custom-hooks/$hook/"
+basedir=$(dirname $(dirname "$0"))
+custom_scripts_dir="$basedir/custom-hooks"
 
 echo "execute custom-hooks"
-ls "$custom_scripts_dir" | while read line
+get_custom_scripts "$custom_scripts_dir" "$hook" | while read line || test -n "$line"
 do
+	echo "execute $line"
 	"$custom_scripts_dir/$line" "$@"
 done
 
