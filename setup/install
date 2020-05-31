@@ -2,24 +2,44 @@
 
 set -eu
 
-basedir=$(cd $(dirname $(dirname $0)) && pwd)
-hooks_dir="$basedir/hooks"
-hook_types_file="$basedir/setup/hook-types"
+mydir=$(dirname "$0")
+basedir="$mydir/.."
+. "$basedir/lib/common"
 
-function load_hooktypes() {
-    cat "$hook_types_file" | grep -v -e '^#' -e '^\s*$'
+load_env "$basedir"
+default_apps_file="$GHOOKS_BASEDIR/setup/default-apps"
+
+function setup() {
+    cat "$default_apps_file" | grep -ve '^#' -e '^$' | while read line || test -n "$line"
+    do
+        src_app_path="$GHOOKS_BASEDIR/$line"
+        install_app "$src_app_path"
+    done
+    install_git_config
 }
 
-load_hooktypes | while read line || test -n "$line"
-do
-    echo "create: \"$hooks_dir/$line\""
-    cat > "$hooks_dir/$line" <<EOF
-#!/usr/bin/env bash
-hook_base_file="\$(dirname \$(dirname \$0))/lib/hook-base"
-. "\$hook_base_file"
-EOF
-    chmod +x "$hooks_dir/$line"
-done
+function install_from_collection() {
+    local app_name="$1"
+    local app_path="$GHOOKS_BASEDIR/collection/$app_name"
 
-echo "change git config(global): core.hooksPath \"$hooks_dir\""
-git config --global core.hooksPath "$hooks_dir"
+    test -d "$app_path" || {
+        echo "$app_name not found in collection." >&2
+        return 1
+    }
+
+    install_app "$app_path"
+}
+
+case "${1:-}" in
+"")
+    setup
+    ;;
+"--setup")
+    setup
+    ;;
+"--refresh")
+    refresh_apps
+    ;;
+*)
+    install_from_collection "$1"
+esac

@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+
+set -eu
+
+mydir=$(dirname $0)
+
+echo -n "hooks:"
+ls "$mydir/hooks/" | paste -s -d ',' -

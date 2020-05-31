@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+app_name=blacklist
+
+. "$GHOOKS_COMMON_SH"
+
+function load_blacklist() {
+	load_config --all "$app_name.files"
+}
+
+function load_whitelist() {
+	load_config --all "$app_name.ignore"
+}
+
+function remove_whitelist_files() {
+	grep -vxFf <(
+		load_whitelist | get_files
+		echo '///'
+	)
+}
+
+function get_files() {
+	grep -v '^$' | while read line || test -n "$line"
+	do
+		git diff --cached --name-only $against -- "$line"
+	done
+}
+
+
+if git rev-parse --verify HEAD >/dev/null 2>&1
+then
+	against=HEAD
+else
+	# Initial commit: diff against an empty tree object
+	against=$(git hash-object -t tree /dev/null)
+fi
+
+blacklisted=$(load_blacklist | get_files | remove_whitelist_files)
+if  [ -n "$blacklisted" ]; then
+	cat >&2 << EOF
+Error: Attempt to add a blacklisted file.
+$blacklisted
+EOF
+	exit 1
+fi

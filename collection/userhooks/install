@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -eu
+
+mydir=$(dirname $0)
+user_hooks_dir=$(cd "$mydir/../../userhooks" && pwd)
+
+function refresh() {
+    echo -n "hooks:"
+    ls "$user_hooks_dir" | paste -s -d ',' -
+}
+
+case "${1:-}" in
+"")
+    mkdir -p "$user_hooks_dir"
+    refresh
+    ;;
+"refresh")
+    refresh
+    ;;
+esac

@@ -1,0 +1,45 @@
+#!/usr/bin/env bash
+
+set -eu
+
+. "$GHOOKS_COMMON_SH"
+
+app_name=userhooks
+user_hooks_dir="$GHOOKS_BASEDIR/$app_name"
+hook="$1"
+shift
+
+function expand_path() {
+	local basedir="$1"
+	local depth="$2"
+
+	while read line || test -n "$line"
+	do
+		find "$basedir" -mindepth "$depth" -maxdepth "$depth" -type f -path "$line"
+	done
+}
+
+function get_scripts() {
+	local basedir="$1"
+	local hook="$2"
+	local curdir=$(pwd)
+
+	test \! -d "$basedir/$hook" && {
+		echo "cancel: directory not exists \"$basedir/$hook\"" >&2
+		return 0
+	}
+
+	(
+		cd "$basedir" &&
+		find "$hook" -maxdepth 1 -type f | grep -vxFf <(
+			load_config --all "$app_name.disabled" | expand_path "$hook" 1
+			echo '//'
+		)
+	)
+}
+
+get_scripts "$user_hooks_dir" "$hook" | while read line || test -n "$line"
+do
+	echo "run: $line"
+	"$user_hooks_dir/$line" "$@"
+done

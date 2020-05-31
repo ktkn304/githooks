@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+
+set -eu
+
+mydir=$(dirname $0)
+
+function refresh() {
+    echo -n "hooks:"
+    ls "$mydir/hooks/" | paste -s -d ',' -
+}
+
+case "${1:-}" in
+"")
+    type git-secrets
+    git-secrets --install -f "$mydir"
+    refresh
+    ;;
+"refresh")
+    refresh
+    ;;
+esac

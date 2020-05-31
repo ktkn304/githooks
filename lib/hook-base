@@ -2,53 +2,54 @@
 
 set -eu
 
-function load_config_all() {
-	local config_key="ghooks.$1"
-	local env_name=$(echo "$config_key" | tr '[:lower:].' '[:upper:]_')
-	{
-		git config --get-all "$config_key" || true
-		eval echo \"\${${env_name}:-}\" | tr ':' '\n'
-	} | sort -u
-}
-
-function expand_path() {
-	local basedir="$1"
-	local depth="$2"
-
-	grep -ve '^$' | while read line || test -n "$line"
-	do
-		find "$basedir" -mindepth "$depth" -maxdepth "$depth" -type f -path "$line"
-	done
-}
-
-function get_custom_scripts() {
-	local basedir="$1"
-	local hook="$2"
-	local curdir=$(pwd)
-
-	cd "$basedir"
-	find "$hook" -maxdepth 1 -type f | grep -vxFf <(
-		load_config_all "core.disabled" | expand_path "$hook" 1
-		echo '//'
-	)
-	cd "$curdir"
-}
-
-echo 'global git hooks'
+mydir=$(dirname "$0")
+basedir="$mydir/../"
+name='core'
 hook=$(basename "$0")
-basedir=$(dirname $(dirname "$0"))
-custom_scripts_dir="$basedir/custom-hooks"
+. "$basedir/lib/common"
 
-echo "execute custom-hooks"
-get_custom_scripts "$custom_scripts_dir" "$hook" | while read line || test -n "$line"
+load_env "$basedir"
+
+function load_disabled_apps() {
+	load_config --all "$name.disabled" || :
+}
+
+function run_scripts() {
+	local path="$1"; shift
+	local hook="$1"; shift
+	local name=$(basename "$path")
+
+	echo "run: \"$path\""
+	if [ "$name" = "*" ]; then
+		"$path" "$hook" "$@"
+	else
+		"$path" "$@"
+	fi
+}
+
+echo 'begin: ghooks'
+list_apps | grep -vxFf <(load_disabled_apps; echo '//';) | while read app || test -n "$app"
 do
-	echo "execute $line"
-	"$custom_scripts_dir/$line" "$@"
+	has_script=''
+	while read script || test -n "$script"
+	do
+		if [ -z "$has_script" ]; then
+			echo "begin: $app"
+			has_script="1"
+		fi
+		
+		run_scripts "$script" "$hook" "$@"
+	done < <(get_app_hook "$app" "$hook")
+	if [ -n "$has_script" ]; then
+		echo "done: $app"
+	fi
 done
 
-echo "execute repository hooks"
+# TODO: リポジトリのフックもappsに入れたい。そのためには、実行準制御もしたい(リポジトリのフックはlintとか重い処理ありそうだから)。
 git_dir=$(git rev-parse --absolute-git-dir)
 local_script="$git_dir/hooks/$hook"
 if [ -f "$local_script" ]; then
+	echo "run: repo hooks \"$local_script\""
 	"$local_script" "$@"
 fi
+echo 'done: ghooks'

@@ -1,0 +1,247 @@
+#!/usr/bin/env bash
+
+_xargs_no_run_if_empty=$(: | xargs echo '--no-run-if-empty')
+function xargs_alt() {
+    xargs $_xargs_no_run_if_empty "$@"
+}
+
+function abs_path() {
+    local path="$1"
+
+    if [ -f "$path" ]; then
+        local name=$(basename "$path")
+        local dirpath=$(dirname "$path")
+        (cd "$dirpath" && { echo "$(pwd)/$name" ; })
+    elif [ -d "$path" ]; then
+        (cd "$path" && pwd)
+    else
+        echo "$path: No such file or directory" >&2
+        return 1
+    fi
+}
+
+function load_env() {
+    : ${1:?"basedir"}
+    local basedir="$1"
+
+    export GHOOKS_BASEDIR=$(abs_path "$basedir")
+    export GHOOKS_COMMON_SH="$GHOOKS_BASEDIR/lib/common"
+}
+
+function _asserts_env_loaded() {
+    : ${GHOOKS_BASEDIR:?"please call load_env()"}
+}
+
+function install_hook() {
+    _asserts_env_loaded
+
+    local hook="$1"
+    local hook_file="$GHOOKS_BASEDIR/hooks/$hook"
+    if test -f "$hook_file"; then
+        echo "skip: already installed \"$hook_file\""
+    else
+        echo "install: \"$hook_file\""
+        cat > "$hook_file" <<EOF
+#!/usr/bin/env bash
+hook_base_file="\$(dirname \$(dirname \$0))/lib/hook-base"
+. "\$hook_base_file"
+EOF
+        chmod +x "$hook_file"
+    fi
+}
+
+function uninstall_hook() {
+    _asserts_env_loaded
+
+    local hook="$1"
+    local hook_file="$GHOOKS_BASEDIR/hooks/$hook"
+    if test -f "$hook_file"; then
+        echo "uninstall: \"$hook_file\""
+        rm "$hook_file"
+    else
+        echo "skip: not installed \"$hook_file\""
+    fi
+}
+
+function list_hooks() {
+    _asserts_env_loaded
+
+    local hooks_dir="$GHOOKS_BASEDIR/hooks"
+    ls "$hooks_dir" | grep -vxF '.gitkeep'
+}
+
+function clear_hooks() {
+    _asserts_env_loaded
+
+    echo "begin: hooks clear"
+
+    local hooks_dir="$GHOOKS_BASEDIR/hooks"
+    find "$hooks_dir" -type f \! -name '.gitkeep' -delete -print | sed -e 's/^/uninstall: /'
+
+    echo "done: hooks clear"
+}
+
+function _apply_app_config() {
+    while read line || test -n "$line"
+    do
+        name=$(echo "$line" | cut -d ':' -f 1)
+        value=$(echo "$line" | cut -d ':' -f 2)
+
+        if [ -z "$name" -o -z "$value" ]; then
+            echo "invalid config: \"$line\"" >&2
+            return 1
+        fi
+
+        case "$name" in
+        "hooks")
+            echo "$value" | tr ',' '\n' | while read line || test -n "$line"
+            do
+                install_hook "$line"
+            done
+        esac
+    done
+}
+
+function install_app() {
+    _asserts_env_loaded
+
+    local src_path=$(echo "$1" | sed -e 's/\/$//')
+    local app_name=$(basename "$src_path")
+    local apps_dir="$GHOOKS_BASEDIR/apps"
+
+    echo "begin: app install \"$app_name\""
+
+    if [ -e "$apps_dir/$app_name" ]; then
+        echo "cancel: already installed \"$app_name\""
+        return 1
+    fi
+
+    echo "copy: \"$src_path\" -> \"$apps_dir\""
+    cp -r "$src_path" "$apps_dir" || return $?
+
+    echo "run: $apps_dir/$app_name/install"
+    "$apps_dir/$app_name/install" | _apply_app_config
+
+    echo "done: app install \"$app_name\""
+}
+
+function refresh_app() {
+    _asserts_env_loaded
+
+    local app_name="$1"
+    local app_dir="$GHOOKS_BASEDIR/apps/$app_name"
+
+    echo "begin: refresh \"$app_name\""
+    if [ \! -e "$app_dir" ]; then
+        echo "cancel: not installed \"$app_name\""
+        return 1
+    fi
+
+    echo "run: $app_dir/install"
+    "$app_dir/install" refresh | _apply_app_config
+
+    echo "done: refresh \"$app_name\""
+}
+
+function uninstall_app() {
+    _asserts_env_loaded
+
+    local app_name="$1"
+    local app_dir="$GHOOKS_BASEDIR/apps/$app_name"
+
+    echo "begin: uninstall \"$app_name\""
+
+    if [ \! -e "$app_dir" ]; then
+        echo "cancel: not installed \"$app_name\""
+        return 1
+    fi
+
+    if [ -f "$app_dir/uninstall" ]; then
+        echo "run: $app_dir/uninstall"
+        "$app_dir/uninstall"
+    fi
+
+    echo "remove: $app_dir"
+    rm -r "$app_dir"
+
+    echo "done: uninstall \"$app_name\""
+}
+
+function list_apps() {
+    _asserts_env_loaded
+
+    local name="${1:-}"
+    local apps_dir="$GHOOKS_BASEDIR/apps"
+    if [ -z "$name" ]; then
+        ls "$apps_dir" | grep -vxF '.gitkeep' | sed -e 's/\/$//'
+    else
+        (cd "$apps_dir" && find . -mindepth 1 -maxdepth 1 -type d \! -name '.gitkeep' -name "$name" | sed -e 's/^\.\///')
+    fi
+}
+
+function refresh_apps() {
+    _asserts_env_loaded
+
+    local apps_dir="$GHOOKS_BASEDIR/apps"
+
+    echo "begin: refresh all"
+
+    list_apps | while read line || test -n "$line"
+    do
+        refresh_app "$line"
+    done
+
+    echo "done: refresh all"
+}
+
+function get_app_hook() {
+    _asserts_env_loaded
+
+    local app_name="$1"
+    local hook="$2"
+    local apps_dir="$GHOOKS_BASEDIR/apps/$app_name"
+
+    if [ -f "$apps_dir/hooks/*" ]; then
+        echo "$apps_dir/hooks/*"
+    fi
+    if [ -f "$apps_dir/hooks/$hook" ]; then
+        echo "$apps_dir/hooks/$hook"
+    fi
+}
+
+function prune_hooks() {
+    clear_hooks
+    refresh_app_all
+}
+
+function install_git_config() {
+    _asserts_env_loaded
+
+    local hooks_dir=$(abs_path "$GHOOKS_BASEDIR/hooks")
+    echo "change git config(global): core.hooksPath \"$hooks_dir\""
+    git config --global core.hooksPath "$hooks_dir"
+}
+
+function load_config() {
+	local config_key
+    local config_param
+    local env_filter
+    case "$1" in
+    "--all")
+        config_key="ghooks.$2"
+        config_param=--get-all
+        env_filter="tr ':' '\n'"
+        ;;
+    *)
+        config_key="ghooks.$1"
+        config_param=
+        env_filter=cat
+        ;;
+    esac
+
+	local env_name=$(echo "$config_key" | tr '[:lower:].' '[:upper:]_')
+	{
+		git config $config_param "$config_key" || :
+		eval echo \"\${${env_name}:-}\" | $env_filter
+	} | sort -u | grep -ve '^$'
+}
