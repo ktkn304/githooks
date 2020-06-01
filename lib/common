@@ -26,6 +26,7 @@ function load_env() {
 
     export GHOOKS_BASEDIR=$(abs_path "$basedir")
     export GHOOKS_COMMON_SH="$GHOOKS_BASEDIR/lib/common"
+    export GHOOKS_CONFIG_KEY_PREFIX="ghooks"
 }
 
 function _asserts_env_loaded() {
@@ -98,6 +99,7 @@ function _apply_app_config() {
             do
                 install_hook "$line"
             done
+            ;;
         esac
     done
 }
@@ -167,16 +169,50 @@ function uninstall_app() {
     echo "done: uninstall \"$app_name\""
 }
 
+function _filter_disabled_apps() {
+    while read line || test -n "$line"
+    do
+        local disabled=$(load_config "apps.$line.disabled")
+        if [ "$disabled" != 'true' ]; then
+            echo "$line"
+        fi
+    done
+}
+
+function _sort_apps() {
+    while read line || test -n "$line"
+    do
+        local priority=$(load_config "apps.$line.priority" || echo "0")
+        echo "${priority}_$line"
+    done | sort -n | sed -e 's/^-*[0-9]*_//'
+}
+
 function list_apps() {
     _asserts_env_loaded
 
-    local name="${1:-}"
+    local sort_cmd=_sort_apps
+    local filter_cmd=_filter_disabled_apps
+    local arg
+    for arg in "$@"; do
+        case "${arg:-}" in
+        "--no-sort")
+            sort_cmd=cat
+            ;;
+        "-a")
+            filter_cmd=cat
+            ;;
+        "--all")
+            filter_cmd=cat
+            ;;
+        *)
+            echo "unrecognized parameter: $arg" >&2
+            return 1
+        esac
+        shift
+    done
+
     local apps_dir="$GHOOKS_BASEDIR/apps"
-    if [ -z "$name" ]; then
-        ls "$apps_dir" | grep -vxF '.gitkeep' | sed -e 's/\/$//'
-    else
-        (cd "$apps_dir" && find . -mindepth 1 -maxdepth 1 -type d \! -name '.gitkeep' -name "$name" | sed -e 's/^\.\///')
-    fi
+    ls "$apps_dir" | grep -vxF '.gitkeep' | sed -e 's/\/$//' | $filter_cmd | $sort_cmd
 }
 
 function refresh_apps() {
@@ -186,7 +222,7 @@ function refresh_apps() {
 
     echo "begin: refresh all"
 
-    list_apps | while read line || test -n "$line"
+    list_apps --all --no-sort | while read line || test -n "$line"
     do
         refresh_app "$line"
     done
@@ -223,25 +259,29 @@ function install_git_config() {
 }
 
 function load_config() {
-	local config_key
-    local config_param
-    local env_filter
+    local all=
+    
     case "$1" in
     "--all")
-        config_key="ghooks.$2"
-        config_param=--get-all
-        env_filter="tr ':' '\n'"
-        ;;
-    *)
-        config_key="ghooks.$1"
-        config_param=
-        env_filter=cat
+        all="true"
+        shift
         ;;
     esac
 
+    local key=$(echo "$1" | tr '-' '_')
+    local config_key="$GHOOKS_CONFIG_KEY_PREFIX.$key"
 	local env_name=$(echo "$config_key" | tr '[:lower:].' '[:upper:]_')
-	{
-		git config $config_param "$config_key" || :
-		eval echo \"\${${env_name}:-}\" | $env_filter
-	} | sort -u | grep -ve '^$'
+    if [ -n "$all" ]; then
+        {
+            git config --get-all "$config_key" || :
+            printenv "$env_name" | tr ':' '\n'
+        } | sort -u | grep -ve '^$'
+    else
+        local value=$(printenv "$env_name")
+        if [ -n "$value" ]; then
+            echo "$value"
+        else
+            git config --get "$config_key"
+        fi
+    fi
 }

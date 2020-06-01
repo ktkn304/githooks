@@ -10,10 +10,6 @@ hook=$(basename "$0")
 
 load_env "$basedir"
 
-function load_disabled_apps() {
-	load_config --all "$name.disabled" || :
-}
-
 function run_scripts() {
 	local path="$1"; shift
 	local hook="$1"; shift
@@ -28,7 +24,7 @@ function run_scripts() {
 }
 
 echo 'begin: ghooks'
-list_apps | grep -vxFf <(load_disabled_apps; echo '//';) | while read app || test -n "$app"
+list_apps | while read app || test -n "$app"
 do
 	has_script=''
 	while read script || test -n "$script"
