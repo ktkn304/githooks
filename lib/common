@@ -33,6 +33,11 @@ function _asserts_env_loaded() {
     : ${GHOOKS_BASEDIR:?"please call load_env()"}
 }
 
+function _appname_to_config_key() {
+    local appname="$1"
+    echo "$appname" | tr '-' '_'
+}
+
 function install_hook() {
     _asserts_env_loaded
 
@@ -83,6 +88,8 @@ function clear_hooks() {
 }
 
 function _apply_app_config() {
+    local app_name="$1"
+
     while read line || test -n "$line"
     do
         name=$(echo "$line" | cut -d ':' -f 1)
@@ -99,6 +106,10 @@ function _apply_app_config() {
             do
                 install_hook "$line"
             done
+            ;;
+        "priority")
+            local key=$(_appname_to_config_key "$app_name")
+            git config --global "$GHOOKS_CONFIG_KEY_PREFIX.apps.$key.priority" "$value"
             ;;
         esac
     done
@@ -122,7 +133,7 @@ function install_app() {
     cp -r "$src_path" "$apps_dir" || return $?
 
     echo "run: $apps_dir/$app_name/install"
-    "$apps_dir/$app_name/install" | _apply_app_config
+    "$apps_dir/$app_name/install" | _apply_app_config "$app_name"
 
     echo "done: app install \"$app_name\""
 }
@@ -140,7 +151,7 @@ function refresh_app() {
     fi
 
     echo "run: $app_dir/install"
-    "$app_dir/install" refresh | _apply_app_config
+    "$app_dir/install" refresh | _apply_app_config "$app_name"
 
     echo "done: refresh \"$app_name\""
 }
@@ -172,7 +183,8 @@ function uninstall_app() {
 function _filter_disabled_apps() {
     while read line || test -n "$line"
     do
-        local disabled=$(load_config "apps.$line.disabled")
+        local key=$(_appname_to_config_key "$line")
+        local disabled=$(load_config "apps.$key.disabled")
         if [ "$disabled" != 'true' ]; then
             echo "$line"
         fi
@@ -182,7 +194,8 @@ function _filter_disabled_apps() {
 function _sort_apps() {
     while read line || test -n "$line"
     do
-        local priority=$(load_config "apps.$line.priority" || echo "0")
+        local key=$(_appname_to_config_key "$line")
+        local priority=$(load_config "apps.$key.priority" || echo "0")
         echo "${priority}_$line"
     done | sort -n | sed -e 's/^-*[0-9]*_//'
 }
@@ -268,8 +281,7 @@ function load_config() {
         ;;
     esac
 
-    local key=$(echo "$1" | tr '-' '_')
-    local config_key="$GHOOKS_CONFIG_KEY_PREFIX.$key"
+    local config_key="$GHOOKS_CONFIG_KEY_PREFIX.$1"
 	local env_name=$(echo "$config_key" | tr '[:lower:].' '[:upper:]_')
     if [ -n "$all" ]; then
         {
