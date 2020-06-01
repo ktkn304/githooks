@@ -20,7 +20,7 @@ function run_scripts() {
 	local name=$(basename "$path")
 
 	echo "run: \"$path\""
-	if [ "$name" = "*" ]; then
+	if [ "$name" = "all_hooks" ]; then
 		"$path" "$hook" "$@"
 	else
 		"$path" "$@"

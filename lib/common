@@ -201,8 +201,8 @@ function get_app_hook() {
     local hook="$2"
     local apps_dir="$GHOOKS_BASEDIR/apps/$app_name"
 
-    if [ -f "$apps_dir/hooks/*" ]; then
-        echo "$apps_dir/hooks/*"
+    if [ -f "$apps_dir/hooks/all_hooks" ]; then
+        echo "$apps_dir/hooks/all_hooks"
     fi
     if [ -f "$apps_dir/hooks/$hook" ]; then
         echo "$apps_dir/hooks/$hook"
