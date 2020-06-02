@@ -13,7 +13,7 @@ function setup() {
     cat "$default_apps_file" | grep -ve '^#' -e '^$' | while read line || test -n "$line"
     do
         src_app_path="$GHOOKS_BASEDIR/$line"
-        install_app "$src_app_path"
+        install_app "$src_app_path" || :
     done
     install_git_config
 }

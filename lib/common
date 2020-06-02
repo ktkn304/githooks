@@ -95,9 +95,13 @@ function _apply_app_config() {
         name=$(echo "$line" | cut -d ':' -f 1)
         value=$(echo "$line" | cut -d ':' -f 2)
 
-        if [ -z "$name" -o -z "$value" ]; then
+        if [ -z "$name" ]; then
             echo "invalid config: \"$line\"" >&2
             return 1
+        fi
+
+        if [ -z "$value" ]; then
+            continue
         fi
 
         case "$name" in
