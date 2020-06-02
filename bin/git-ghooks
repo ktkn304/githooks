@@ -1,0 +1,197 @@
+#!/usr/bin/env bash
+
+set -eu
+
+mydir=$(dirname "$0")
+basedir="$mydir/.."
+. "$basedir/lib/common"
+load_env "$basedir"
+
+function act_usage() {
+    echo "$0"
+}
+
+function act_install() {
+    local scope="${1:---global}"
+    case "$scope" in
+    "--global" | "--local" | "--worktree")
+        ;;
+    *)
+        echo "$scope"
+        act_usage "install" >&2
+        return 1
+        ;;
+    esac
+    install_git_config "$scope"
+}
+
+function act_uninstall() {
+    local scope="${1:---global}"
+    case "$scope" in
+    "--global" | "--local" | "--worktree")
+        ;;
+    *)
+        echo "$scope"
+        act_usage "install" >&2
+        return 1
+        ;;
+    esac
+    uninstall_git_config "$scope"
+}
+
+function act_hooks() {
+    local action_type
+    local hook_names=()
+    while test -n "${1:-}"; do
+        case "$1" in
+        "--add")
+            if [ -n "$action_type" ]; then
+                act_usage "hooks" >&2
+                return 1
+            fi
+            action_type="add"
+            ;;
+        "--remove")
+            if [ -n "$action_type" ]; then
+                act_usage "hooks" >&2
+                return 1
+            fi
+            action_type="remove"
+            ;;
+        "--list")
+            if [ -n "$action_type" ]; then
+                act_usage "hooks" >&2
+                return 1
+            fi
+            action_type="list"
+            ;;
+        "--prune")
+            if [ -n "$action_type" ]; then
+                act_usage "hooks" >&2
+                return 1
+            fi
+            action_type="prune"
+            ;;
+        --*)
+            act_usage "hooks" >&2
+            return 1
+            ;;
+        *)
+            hook_names+=("$1")
+        esac
+
+        shift
+    done
+
+    local hook_name
+    case "$action_type" in
+    "add")
+        for hook_name in "${hook_names[@]}"; do
+            install_hook "$hook_name"
+        done
+        ;;
+    "remove")
+        for hook_name in "${hook_names[@]}"; do
+            uninstall_hook "$hook_name"
+        done
+        ;;
+    "list")
+        if [ ${#hook_names[@]} -ne 0 ]; then
+            act_usage "hooks" >&2
+            return 1
+        fi
+        list_hooks
+        ;;
+    "prune")
+        if [ ${#hook_names[@]} -ne 0 ]; then
+            act_usage "hooks" >&2
+            return 1
+        fi
+        prune_hooks
+        ;;
+    esac
+}
+
+function act_apps() {
+    local action_type
+    local app_names=()
+    while test -n "${1:-}"; do
+        case "$1" in
+        "--add")
+            if [ -n "$action_type" ]; then
+                act_usage "apps" >&2
+                return 1
+            fi
+            action_type="add"
+            ;;
+        "--remove")
+            if [ -n "$action_type" ]; then
+                act_usage "apps" >&2
+                return 1
+            fi
+            action_type="remove"
+            ;;
+        "--list")
+            if [ -n "$action_type" ]; then
+                act_usage "apps" >&2
+                return 1
+            fi
+            action_type="list"
+            ;;
+        --*)
+            act_usage "hooks" >&2
+            return 1
+            ;;
+        *)
+            app_names+=("$1")
+        esac
+
+        shift
+    done
+
+    local app_name
+    case "$action_type" in
+    "add")
+        for app_name in "${app_names[@]}"; do
+            install_from_collection "$app_name"
+        done
+        ;;
+    "remove")
+        for app_name in "${app_names[@]}"; do
+            uninstall_app "$app_name"
+        done
+        ;;
+    "list")
+        if [ ${#app_names[@]} -ne 0 ]; then
+            act_usage "apps" >&2
+            return 1
+        fi
+        list_apps --all --no-sort
+        ;;
+    esac
+}
+
+function main() {
+    local action="${1:-}"
+    shift
+
+    case "$action" in
+    "")
+        act_usage >&2
+        return 1
+        ;;
+    "-h" | "--help")
+        act_usage "$@"
+        ;;
+    *)
+        local func_name="act_$action"
+        local type=$(type -t "$func_name")
+        if [ "$type" != 'function' ]; then
+            act_usage >&2
+            return 1
+        else
+            act_$action "$@"
+        fi
+    esac
+}
+main "$@"
