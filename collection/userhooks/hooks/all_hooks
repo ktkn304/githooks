@@ -32,7 +32,7 @@ function get_scripts() {
 	(
 		cd "$basedir" &&
 		find "$hook" -maxdepth 1 -type f | grep -vxFf <(
-			load_config --all "$app_name.disabled" | expand_path "$hook" 1
+			load_config --get-all "$app_name.disabled" | expand_path "$hook" 1
 			echo '//'
 		)
 	)

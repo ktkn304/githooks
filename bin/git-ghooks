@@ -171,6 +171,37 @@ function act_apps() {
     esac
 }
 
+function act_config() {
+    local all=
+    local without_env=
+    local list=
+    local name=
+    while test -n "${1:-}"; do
+        case "$1" in
+        "--get-all")
+            all='true'
+            ;;
+        "--without-env")
+            without_env='true'
+            ;;
+        "--list")
+            list='true'
+            ;;
+        *)
+            name="$1"
+            ;;
+        esac
+        shift
+    done
+
+    if [ -n "$list" -a \( -n "$all" -o -n "$without_env" \) ]; then
+        act_usage "config"
+        return 1
+    fi
+
+    load_config ${list+--list} ${all+--get-all} ${without_env+--without-env} "$name"
+}
+
 function main() {
     local action="${1:-}"
     shift

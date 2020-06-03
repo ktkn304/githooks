@@ -5,11 +5,11 @@ app_name=blacklist
 . "$GHOOKS_COMMON_SH"
 
 function load_blacklist() {
-	load_config --all "$app_name.files"
+	load_config --get-all "$app_name.files"
 }
 
 function load_whitelist() {
-	load_config --all "$app_name.ignore"
+	load_config --get-all "$app_name.ignore"
 }
 
 function remove_whitelist_files() {
