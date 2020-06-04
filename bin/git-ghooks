@@ -172,20 +172,20 @@ function act_apps() {
 }
 
 function act_config() {
-    local all=
-    local without_env=
-    local list=
-    local name=
+    local all
+    local without_env
+    local list
+    local name
     while test -n "${1:-}"; do
         case "$1" in
         "--get-all")
-            all='true'
+            all='--get-all'
             ;;
         "--without-env")
-            without_env='true'
+            without_env='--without-env'
             ;;
         "--list")
-            list='true'
+            list='--list'
             ;;
         *)
             name="$1"
@@ -194,12 +194,16 @@ function act_config() {
         shift
     done
 
-    if [ -n "$list" -a \( -n "$all" -o -n "$without_env" \) ]; then
+    if [ -n "$list" -a \( -n "$all" -o -n "$without_env" -o -n "$name" \) ]; then
         act_usage "config"
         return 1
     fi
+    if [ -z "$name" ]; then
+        act_usage 'config'
+        return 1
+    fi
 
-    load_config ${list+--list} ${all+--get-all} ${without_env+--without-env} "$name"
+    load_config $list $all $without_env "$name"
 }
 
 function main() {

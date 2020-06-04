@@ -301,9 +301,8 @@ function uninstall_git_config() {
 function load_config() {
     local all=
     local without_env=
+    local list=
     local name=
-
-    echo "DEBUG: $@"
 
     while test -n "${1:-}"; do
         case "$1" in
@@ -313,6 +312,9 @@ function load_config() {
         "--without-env")
             without_env='true'
             ;;
+        "--list")
+            list='true'
+            ;;
         *)
             name="$1"
             ;;
@@ -320,23 +322,28 @@ function load_config() {
         shift
     done
 
-    echo "DEBUG: $without_env"
-
-    local config_key="$GHOOKS_CONFIG_KEY_PREFIX.$name"
-	local env_name=$(echo "$config_key" | tr '[:lower:].' '[:upper:]_')
-    if [ -n "$all" ]; then
+    if [ -n "$list" ]; then
         {
-            git config --get-all "$config_key" || :
-            if [ -z "$without_env" ]; then
-                printenv "$env_name" | tr ':' '\n'
-            fi
-        } | sort -u | grep -ve '^$'
+            git config --get-regex "$GHOOKS_CONFIG_KEY_PREFIX.*" || :
+            printenv | grep -e 'GHOOKS_.*'
+        } | grep -ve '^$'
     else
-        local value=$(printenv "$env_name")
-        if [ -n "$value" -a -z "$without_env" ]; then
-            echo "$value"
+        local config_key="$GHOOKS_CONFIG_KEY_PREFIX.$name"
+        local env_name=$(echo "$config_key" | tr '[:lower:].' '[:upper:]_')
+        if [ -n "$all" ]; then
+            {
+                git config --get-all "$config_key" || :
+                if [ -z "$without_env" ]; then
+                    printenv "$env_name" | tr ':' '\n'
+                fi
+            } | sort -u | grep -ve '^$'
         else
-            git config --get "$config_key"
+            local value=$(printenv "$env_name")
+            if [ -n "$value" -a -z "$without_env" ]; then
+                echo "$value"
+            else
+                git config --get "$config_key"
+            fi
         fi
     fi
 }
