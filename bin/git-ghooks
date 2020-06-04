@@ -153,7 +153,11 @@ function act_apps() {
     case "$action_type" in
     "add")
         for app_name in "${app_names[@]}"; do
-            install_from_collection "$app_name"
+            if echo "$app_name" | grep -F '/'; then
+                install_app "$app_name"
+            else
+                install_from_collection "$app_name"
+            fi
         done
         ;;
     "remove")
