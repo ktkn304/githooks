@@ -4,11 +4,16 @@ set -eu
 
 mydir=$(dirname "$0")
 basedir="$mydir/../"
-name='core'
 hook=$(basename "$0")
+git_dir=$(git rev-parse --show-toplevel)
 . "$basedir/lib/common"
 
 load_env "$basedir"
+
+if [ -z "${GHOOKS_CORE_DIRENV_LOADED:-}" -a "$(load_config core.direnv)" = "true" ]; then
+	GHOOKS_CORE_DIRENV_LOADED=true direnv exec "$git_dir" "$0" "$@"
+	exit
+fi
 
 function run_scripts() {
 	local path="$1"; shift
