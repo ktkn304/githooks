@@ -214,6 +214,21 @@ function act_config() {
     load_config $list $all $without_env "$name"
 }
 
+function act_run() {
+    local hook="$1"
+    while test -n "${1:-}"; do
+        case "$1" in
+        '--')
+            shift
+            break
+            ;;
+        esac
+        shift
+    done
+
+    # TODO: スクリプトを実行する
+}
+
 function main() {
     local action="${1:-}"
     shift
