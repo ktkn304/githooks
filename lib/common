@@ -148,7 +148,7 @@ function install_from_collection() {
     local app_name="$1"
     local app_path="$GHOOKS_BASEDIR/collection/$app_name"
 
-    if [ -d "$app_path" ]; then
+    if [ \! -d "$app_path" ]; then
         echo "cancel: $app_name not found in collection." >&2
         return 1
     fi

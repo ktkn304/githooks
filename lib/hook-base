@@ -40,12 +40,4 @@ do
 		echo "done: $app"
 	fi
 done
-
-# TODO: リポジトリのフックもappsに入れたい。そのためには、実行準制御もしたい(リポジトリのフックはlintとか重い処理ありそうだから)。
-git_dir=$(git rev-parse --absolute-git-dir)
-local_script="$git_dir/hooks/$hook"
-if [ -f "$local_script" ]; then
-	echo "run: repo hooks \"$local_script\""
-	"$local_script" "$@"
-fi
 echo 'done: ghooks'

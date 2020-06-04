@@ -168,6 +168,10 @@ function act_apps() {
         fi
         list_apps --all --no-sort
         ;;
+    *)
+        act_usage 'apps' >&2
+        return 1
+        ;;
     esac
 }
 

@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+set -eu
+
+hook="$1"
+shift
+
+git_dir=$(git rev-parse --absolute-git-dir)
+local_script="$git_dir/hooks/$hook"
+if [ -f "$local_script" ]; then
+	echo "run: repo hooks \"$local_script\""
+	"$local_script" "$@"
+fi

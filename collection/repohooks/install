@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+
+set -eu
+
+mydir=$(dirname $0)
+
+function refresh() {
+    echo "hooks:"
+    echo "priority:20"
+}
+
+case "${1:-}" in
+"")
+    refresh
+    ;;
+"refresh")
+    refresh
+    ;;
+esac
