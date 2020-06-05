@@ -215,6 +215,11 @@ function act_config() {
 }
 
 function act_run() {
+    if [ -z "${GHOOKS_CORE_DIRENV_LOADED:-}" -a "$(load_config core.direnv)" = "true" ]; then
+        local git_dir=$(git rev-parse --show-toplevel)
+        GHOOKS_CORE_DIRENV_LOADED=true direnv exec "$git_dir" "$0" run "$@"
+        return 0
+    fi
     local hook="$1"
     while test -n "${1:-}"; do
         case "$1" in
@@ -226,7 +231,23 @@ function act_run() {
         shift
     done
 
-    # TODO: スクリプトを実行する
+    local has_script
+    list_apps | while read app || test -n "$app"
+    do
+        has_script=''
+        while read script || test -n "$script"
+        do
+            if [ -z "$has_script" ]; then
+                echo "begin: $app"
+                has_script="1"
+            fi
+            
+            run_script "$script" "$hook" "$@"
+        done < <(get_app_hook "$app" "$hook")
+        if [ -n "$has_script" ]; then
+            echo "done: $app"
+        fi
+    done
 }
 
 function main() {

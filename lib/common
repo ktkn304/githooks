@@ -347,3 +347,16 @@ function load_config() {
         fi
     fi
 }
+
+function run_script() {
+    local path="$1"; shift
+	local hook="$1"; shift
+	local name=$(basename "$path")
+
+	echo "run: \"$path\""
+	if [ "$name" = "all_hooks" ]; then
+		"$path" "$hook" "$@"
+	else
+		"$path" "$@"
+	fi
+}

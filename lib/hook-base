@@ -15,19 +15,6 @@ if [ -z "${GHOOKS_CORE_DIRENV_LOADED:-}" -a "$(load_config core.direnv)" = "true
 	exit
 fi
 
-function run_scripts() {
-	local path="$1"; shift
-	local hook="$1"; shift
-	local name=$(basename "$path")
-
-	echo "run: \"$path\""
-	if [ "$name" = "all_hooks" ]; then
-		"$path" "$hook" "$@"
-	else
-		"$path" "$@"
-	fi
-}
-
 echo 'begin: ghooks'
 list_apps | while read app || test -n "$app"
 do
@@ -39,7 +26,7 @@ do
 			has_script="1"
 		fi
 		
-		run_scripts "$script" "$hook" "$@"
+		run_script "$script" "$hook" "$@"
 	done < <(get_app_hook "$app" "$hook")
 	if [ -n "$has_script" ]; then
 		echo "done: $app"
